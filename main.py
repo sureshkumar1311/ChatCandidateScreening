@@ -170,8 +170,8 @@ async def chat(request: ChatRequest):
         
         # Get AI response using data from session (no need to pass resume/JD)
         ai_reply = await ai_agent_service.get_next_question(
-            resume=session.resume_text,  # From database
-            job_description=session.job_description,  # From database
+            resume=session.resume_text,
+            job_description=session.job_description,
             conversation_history=session.messages,
             question_number=session.question_count
         )
@@ -186,8 +186,8 @@ async def chat(request: ChatRequest):
         # Update question count
         session.question_count += 1
         
-        # Check if interview is complete (6 questions asked)
-        is_complete = session.question_count >= 6
+        # Check if interview is complete (10 questions asked - including closing message)
+        is_complete = session.question_count >= 10
         
         # Update session in database
         database_service.update_session(
@@ -208,12 +208,15 @@ async def chat(request: ChatRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
-    
+        
 @app.post("/api/final-report", response_model=FinalReport)
 async def generate_final_report(request: FinalReportRequest):
     """
     Endpoint 3: Generate final evaluation report
-    Called after interview is complete (6 questions answered)
+    
+    Can be called:
+    1. After interview is complete (10 questions answered) - Full evaluation
+    2. During interview (early generation) - Partial evaluation with note
     
     Only requires:
     - session_id: To identify the session
@@ -226,11 +229,11 @@ async def generate_final_report(request: FinalReportRequest):
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         
-        # Check if interview is complete
-        if not session.is_complete:
+        # Check if at least some questions were answered (minimum 3 for meaningful evaluation)
+        if session.question_count < 3:
             raise HTTPException(
                 status_code=400,
-                detail=f"Interview not complete. Only {session.question_count}/6 questions answered."
+                detail=f"Not enough data for evaluation. Only {session.question_count}/10 questions answered. Please answer at least 3 questions."
             )
         
         # Check if report already exists
@@ -239,11 +242,13 @@ async def generate_final_report(request: FinalReportRequest):
             return existing_report
         
         # Generate report using data from session
+        # Pass questions_answered to inform AI about interview completion status
         report = await ai_agent_service.generate_final_report(
             candidate_name=session.candidate_name,
-            resume=session.resume_text,  # From database
-            job_description=session.job_description,  # From database
-            conversation_history=session.messages  # From database
+            resume=session.resume_text,
+            job_description=session.job_description,
+            conversation_history=session.messages,
+            questions_answered=session.question_count  # NEW: Pass completion status
         )
         
         # Set session_id
@@ -252,13 +257,22 @@ async def generate_final_report(request: FinalReportRequest):
         # Save report to database
         database_service.save_report(report)
         
+        # Optionally mark session as complete if not already
+        if not session.is_complete:
+            database_service.update_session(
+                session_id=request.session_id,
+                messages=session.messages,
+                question_count=session.question_count,
+                is_complete=True  # Mark as complete when report is generated
+            )
+        
         return report
         
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Report generation failed: {str(e)}")
-    
+        
 @app.get("/api/report/{session_id}", response_model=FinalReport)
 async def get_report(session_id: str):
     """Get existing report by session ID"""
