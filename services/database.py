@@ -138,5 +138,126 @@ class DatabaseService:
         except Exception as e:
             print(f"List reports error: {e}")
             return []
+        
+    # Add these methods to the DatabaseService class
+
+    '''def create_mcq_session(
+        self,
+        candidate_name: str,
+        candidate_email: str,
+        resume_text: str,
+        job_description: str,
+        questions: List[Dict[str, Any]]
+    ) -> str:
+        """Create new MCQ session"""
+        session_id = str(uuid.uuid4())
+        
+        from models import MCQSession
+        session = MCQSession(
+            id=session_id,
+            session_id=session_id,
+            candidate_name=candidate_name,
+            candidate_email=candidate_email,
+            resume_text=resume_text,
+            job_description=job_description,
+            questions=questions,
+            answers=[],
+            current_question_number=0,
+            is_complete=False
+        )
+        
+        # Convert to dict and serialize datetime objects
+        session_dict = session.model_dump()
+        session_dict = serialize_datetime(session_dict)
+        
+        # Create MCQ sessions container if not exists
+        try:
+            self.mcq_sessions_container = self.database.create_container_if_not_exists(
+                id="mcq_sessions",
+                partition_key=PartitionKey(path="/session_id"),
+                offer_throughput=400
+            )
+        except:
+            pass
+        
+        self.mcq_sessions_container.create_item(body=session_dict)
+        return session_id
+
+    def get_mcq_session(self, session_id: str):
+        """Retrieve MCQ session by ID"""
+        try:
+            from models import MCQSession
+            if not hasattr(self, 'mcq_sessions_container'):
+                self.mcq_sessions_container = self.database.get_container_client("mcq_sessions")
+            
+            item = self.mcq_sessions_container.read_item(
+                item=session_id,
+                partition_key=session_id
+            )
+            return MCQSession(**item)
+        except exceptions.CosmosResourceNotFoundError:
+            return None
+
+    def update_mcq_session(
+        self,
+        session_id: str,
+        answers: List,
+        current_question_number: int,
+        is_complete: bool = False
+    ):
+        """Update MCQ session with new answer"""
+        try:
+            session = self.get_mcq_session(session_id)
+            if not session:
+                raise ValueError(f"MCQ Session {session_id} not found")
+            
+            session.answers = answers
+            session.current_question_number = current_question_number
+            session.is_complete = is_complete
+            session.updated_at = datetime.utcnow()
+            
+            # Convert to dict and serialize datetime objects
+            session_dict = session.model_dump()
+            session_dict = serialize_datetime(session_dict)
+            
+            self.mcq_sessions_container.upsert_item(body=session_dict)
+        except Exception as e:
+            print(f"MCQ session update error: {e}")
+            raise
+
+    def save_mcq_report(self, report):
+        """Save MCQ evaluation report"""
+        try:
+            if not hasattr(self, 'mcq_reports_container'):
+                self.mcq_reports_container = self.database.create_container_if_not_exists(
+                    id="mcq_reports",
+                    partition_key=PartitionKey(path="/session_id"),
+                    offer_throughput=400
+                )
+            
+            # Convert to dict and serialize datetime objects
+            report_dict = report.model_dump()
+            report_dict = serialize_datetime(report_dict)
+            report_dict['id'] = report.session_id
+            
+            self.mcq_reports_container.upsert_item(body=report_dict)
+        except Exception as e:
+            print(f"MCQ report save error: {e}")
+            raise
+
+    def get_mcq_report(self, session_id: str):
+        """Retrieve MCQ report by session ID"""
+        try:
+            from models import MCQEvaluationReport
+            if not hasattr(self, 'mcq_reports_container'):
+                self.mcq_reports_container = self.database.get_container_client("mcq_reports")
+            
+            item = self.mcq_reports_container.read_item(
+                item=session_id,
+                partition_key=session_id
+            )
+            return MCQEvaluationReport(**item)
+        except exceptions.CosmosResourceNotFoundError:
+            return None'''
 
 database_service = DatabaseService()

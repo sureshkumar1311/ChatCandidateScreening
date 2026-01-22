@@ -22,19 +22,15 @@ Your role:
 2. Ask ONE question at a time
 3. Adapt follow-up questions based on previous answers
 4. Be professional, friendly, and conversational
-5. After 9 questions, you will provide a closing message (question 10)
+5. After 5 questions, you will provide a closing message (question 6)
 
 Interview Structure:
 - Question 1: Ask about their most recent/relevant project
 - Question 2: Validate key skills from their resume relevant to the JD
 - Question 3: Technical challenge they solved
 - Question 4: Team collaboration and communication
-- Question 5: Problem-solving scenario
-- Question 6: JD-specific technical question
-- Question 7: Experience with specific tools/technologies mentioned in JD
-- Question 8: Leadership or mentorship experience
-- Question 9: Career goals and alignment with role
-- Question 10: Closing message thanking them and informing them about next steps
+- Question 5: Problem-solving scenario or JD-specific technical question
+- Question 6: Closing message thanking them and informing them about next steps
 
 Keep questions conversational and natural. Don't be too formal."""
     
@@ -52,7 +48,7 @@ Keep questions conversational and natural. Don't be too formal."""
             {"role": "system", "content": self.system_prompt},
             {"role": "system", "content": f"CANDIDATE RESUME:\n{resume}"},
             {"role": "system", "content": f"JOB DESCRIPTION:\n{job_description}"},
-            {"role": "system", "content": f"Current Question Number: {question_number + 1}/10"}
+            {"role": "system", "content": f"Current Question Number: {question_number + 1}/6"}
         ]
         
         # Add conversation history
@@ -66,11 +62,11 @@ Keep questions conversational and natural. Don't be too formal."""
                 "role": "user", 
                 "content": "Start the interview with a warm greeting and ask the first question about their most recent project."
             })
-        elif question_number == 9:
-            # Question 10 - Closing message
+        elif question_number == 5:
+            # Question 6 - Closing message
             messages.append({
                 "role": "user",
-                "content": """This is the final message (question 10). Provide a warm closing message that:
+                "content": """This is the final message (question 6). Provide a warm closing message that:
 1. Thanks the candidate for their time and detailed responses
 2. Informs them that the screening interview is now complete
 3. Mentions that you have gathered enough information to evaluate their candidacy
@@ -100,7 +96,7 @@ Keep it professional, warm, and encouraging. This should NOT be a question, but 
         resume: str,
         job_description: str,
         conversation_history: List[ChatMessage],
-        questions_answered: int  # NEW PARAMETER
+        questions_answered: int
     ) -> FinalReport:
         """Generate comprehensive final evaluation report"""
         
@@ -111,8 +107,8 @@ Keep it professional, warm, and encouraging. This should NOT be a question, but 
         
         # Add note if interview was incomplete
         completion_note = ""
-        if questions_answered < 10:
-            completion_note = f"\n\nNOTE: This interview was completed early with only {questions_answered}/10 questions answered. Adjust your evaluation accordingly and mention this in the detailed feedback."
+        if questions_answered < 6:
+            completion_note = f"\n\nNOTE: This interview was completed early with only {questions_answered}/6 questions answered. Adjust your evaluation accordingly and mention this in the detailed feedback."
         
         evaluation_prompt = f"""
 Based on the interview, generate a detailed evaluation report.
@@ -177,7 +173,7 @@ Return ONLY valid JSON in this exact format:
         
         # Create FinalReport object
         report = FinalReport(
-            session_id="",  # Will be set by caller
+            session_id="",
             candidate_name=candidate_name,
             skill_match=evaluation['skill_match'],
             experience_match=evaluation['experience_match'],

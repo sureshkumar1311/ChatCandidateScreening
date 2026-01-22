@@ -168,7 +168,7 @@ async def chat(request: ChatRequest):
         )
         session.messages.append(user_message)
         
-        # Get AI response using data from session (no need to pass resume/JD)
+        # Get AI response using data from session
         ai_reply = await ai_agent_service.get_next_question(
             resume=session.resume_text,
             job_description=session.job_description,
@@ -186,8 +186,8 @@ async def chat(request: ChatRequest):
         # Update question count
         session.question_count += 1
         
-        # Check if interview is complete (10 questions asked - including closing message)
-        is_complete = session.question_count >= 10
+        # Check if interview is complete (6 questions asked - including closing message)
+        is_complete = session.question_count >= 6
         
         # Update session in database
         database_service.update_session(
@@ -215,7 +215,7 @@ async def generate_final_report(request: FinalReportRequest):
     Endpoint 3: Generate final evaluation report
     
     Can be called:
-    1. After interview is complete (10 questions answered) - Full evaluation
+    1. After interview is complete (6 questions answered) - Full evaluation
     2. During interview (early generation) - Partial evaluation with note
     
     Only requires:
@@ -229,11 +229,11 @@ async def generate_final_report(request: FinalReportRequest):
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         
-        # Check if at least some questions were answered (minimum 3 for meaningful evaluation)
-        if session.question_count < 3:
+        # Check if at least some questions were answered (minimum 2 for meaningful evaluation)
+        if session.question_count < 2:
             raise HTTPException(
                 status_code=400,
-                detail=f"Not enough data for evaluation. Only {session.question_count}/10 questions answered. Please answer at least 3 questions."
+                detail=f"Not enough data for evaluation. Only {session.question_count}/6 questions answered. Please answer at least 2 questions."
             )
         
         # Check if report already exists
@@ -242,13 +242,12 @@ async def generate_final_report(request: FinalReportRequest):
             return existing_report
         
         # Generate report using data from session
-        # Pass questions_answered to inform AI about interview completion status
         report = await ai_agent_service.generate_final_report(
             candidate_name=session.candidate_name,
             resume=session.resume_text,
             job_description=session.job_description,
             conversation_history=session.messages,
-            questions_answered=session.question_count  # NEW: Pass completion status
+            questions_answered=session.question_count
         )
         
         # Set session_id
@@ -263,7 +262,7 @@ async def generate_final_report(request: FinalReportRequest):
                 session_id=request.session_id,
                 messages=session.messages,
                 question_count=session.question_count,
-                is_complete=True  # Mark as complete when report is generated
+                is_complete=True
             )
         
         return report
