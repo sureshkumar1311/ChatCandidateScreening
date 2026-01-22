@@ -1,10 +1,21 @@
 from azure.cosmos import CosmosClient, PartitionKey, exceptions
 from config import get_settings
 from models import InterviewSession, ChatMessage, FinalReport
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import uuid
+from datetime import datetime
 
 settings = get_settings()
+
+def serialize_datetime(obj: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively serialize datetime objects to ISO format strings for Cosmos DB"""
+    if isinstance(obj, dict):
+        return {k: serialize_datetime(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [serialize_datetime(item) for item in obj]
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    return obj
 
 class DatabaseService:
     def __init__(self):
@@ -141,7 +152,7 @@ class DatabaseService:
         
     # Add these methods to the DatabaseService class
 
-    '''def create_mcq_session(
+    def create_mcq_session(
         self,
         candidate_name: str,
         candidate_email: str,
@@ -258,6 +269,6 @@ class DatabaseService:
             )
             return MCQEvaluationReport(**item)
         except exceptions.CosmosResourceNotFoundError:
-            return None'''
+            return None
 
 database_service = DatabaseService()
